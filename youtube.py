@@ -8,26 +8,46 @@ VIDEO_ID = 'vnKZ4pdSU-s'
 def dump_comments(feed):
     comments = list()
     for entry in feed.entries:
-        value = entry.content[0].value.replace('\n', ' ')
-        comment = [entry.author, str(get_nationality(entry)), entry.published, value]
-        comment = [i.encode('utf-8') for i in comment]
+        body = entry.content[0].value.replace('\n', ' ')
+        
+        author_feed = feedparser.parse(entry.author_detail.href)
+        firstname = get_author_attr(author_feed, 'firstName')
+        lastname = get_author_attr(author_feed, 'lastName')
+        location = get_author_attr(author_feed, 'yt_location')
+        age = get_author_attr(author_feed, 'yt_age')
+        gender = get_author_attr(author_feed, 'yt_gender')
+        books = get_author_attr(author_feed, 'yt_books')
+        aboutme = get_author_attr(author_feed, 'yt_aboutMe')
+        company = get_author_attr(author_feed, 'yt_company')
+        hobbies = get_author_attr(author_feed, 'yt_hobbies')
+        hometown = get_author_attr(author_feed, 'yt_hometown')
+        occupation = get_author_attr(author_feed, 'yt_occupation')
+        school = get_author_attr(author_feed, 'yt_school')
+        statistics = get_author_attr(author_feed, 'yt_statistics')
+        
+        comment = [entry.author, firstname, lastname, location, \
+            age, gender, books, aboutme, company, hobbies, hometown, \
+            occupation, school, statistics, entry.published, body]
+        comment = [i.encode('utf-8') for i in comment] # todo: correct?
         comments.append(comment)
     return comments
 
 
-def get_nationality(entry):
-    feed = feedparser.parse(entry.author_detail.href)
+def get_author_attr(author_feed, attribute):
     try:
-        location = feed.entries[0].yt_location
+        value = getattr(author_feed.entries[0], attribute)
     except (AttributeError, IndexError) as e:
-        location = 'unknown'
-    return location
+        value = 'unknown'
+    return str(value)
 
 
 def main():
     with open('comments.csv', 'wb') as csv_file:
         csv_writer = csv.writer(csv_file, dialect='excel', delimiter=';', quoting=csv.QUOTE_MINIMAL)
-        csv_writer.writerow(['username', 'location', 'published', 'comment'])
+        heading = ['username', 'firstname', 'lastname', 'location', \
+            'age', 'gender', 'books', 'aboutme', 'company', 'hobbies', 'hometown', \
+            'occupation', 'school', 'statistics', 'published', 'comment']
+        csv_writer.writerow(heading)
 
         print 'Now parsing feed 1...'
         feed = feedparser.parse('https://gdata.youtube.com/feeds/api/videos/' + VIDEO_ID + '/comments')
@@ -39,7 +59,6 @@ def main():
                 if l.rel == 'next':
                     next_url = l.href
 
-            time.sleep(5)  # Wait 5 seconds to prevent reaching request limit
             print 'Now parsing feed ' + str(i + 2) + '...'
             feed = feedparser.parse(next_url)
             csv_writer.writerows(dump_comments(feed))
