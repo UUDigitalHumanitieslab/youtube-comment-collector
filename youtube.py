@@ -1,8 +1,11 @@
 import feedparser
+import requests
 import csv
 import time
 
 VIDEO_ID = 'vnKZ4pdSU-s'
+API_KEY = ''
+GPLUS = 'https://www.googleapis.com/plus/v1/people/'
 
 
 def dump_comments(feed):
@@ -11,10 +14,7 @@ def dump_comments(feed):
 		body = entry.content[0].value.replace('\n', ' ')
 		
 		author_feed = feedparser.parse(entry.author_detail.href)
-		firstname = get_author_attr(author_feed, 'yt_firstname')
-		lastname = get_author_attr(author_feed, 'yt_lastname')
 		location = get_author_attr(author_feed, 'yt_location')
-		age = get_author_attr(author_feed, 'yt_age')
 		gender = get_author_attr(author_feed, 'yt_gender')
 		books = get_author_attr(author_feed, 'yt_books')
 		aboutme = get_author_attr(author_feed, 'yt_aboutme')
@@ -26,9 +26,16 @@ def dump_comments(feed):
 		statistics = get_author_stats(author_feed)
 		reply_count = entry.yt_replycount
 		activity_id = entry.id.split(':')[-1]
+
+		r = requests.get(GPLUS + entry.yt_googleplususerid, params={'key' : API_KEY})
+		j = r.json()
+		firstname = j.get('name', {}).get('givenName', '')
+		lastname = j.get('name', {}).get('familyName', '')
+		birthday = j.get('birthday', '')
+		gender = j.get('gender', '')
 		
 		comment = [entry.author, firstname, lastname, location, \
-			age, gender, books, aboutme, company, hobbies, hometown, \
+			birthday, gender, books, aboutme, company, hobbies, hometown, \
 			occupation, school, statistics, reply_count, activity_id, entry.published, body]
 		comment = [i.encode('utf-8') for i in comment] # todo: correct?
 		comments.append(comment)
@@ -55,7 +62,7 @@ def main():
 	with open('comments.csv', 'wb') as csv_file:
 		csv_writer = csv.writer(csv_file, dialect='excel', delimiter=';', quoting=csv.QUOTE_MINIMAL)
 		heading = ['username', 'firstname', 'lastname', 'location', \
-			'age', 'gender', 'books', 'aboutme', 'company', 'hobbies', 'hometown', \
+			'birthday', 'gender', 'books', 'aboutme', 'company', 'hobbies', 'hometown', \
 			'occupation', 'school', 'statistics', 'replycount', 'activity_id', 'published', 'comment']
 		csv_writer.writerow(heading)
 
@@ -64,7 +71,7 @@ def main():
 		csv_writer.writerows(dump_comments(feed))
 		next_url = get_next_url(feed)
 
-		for i in range(25):
+		for i in range(0):
 			print 'Now parsing feed ' + str(i + 2) + '...'
 			feed = get_next_feed(next_url)
 			csv_writer.writerows(dump_comments(feed))
